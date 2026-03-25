@@ -12,8 +12,6 @@ jobs:
   build-android:
     name: 📱 Android APK
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +48,16 @@ jobs:
       - name: Setup Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" 2>/dev/null || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Patch Export Presets (Auto-Fix)
+        run: |
+          # Этот шаг принудительно очищает пути к ключам в конфиге, чтобы не было конфликтов
+          sed -i 's|keystore/debug=".*"|keystore/debug=""|g' export_presets.cfg
+          sed -i 's|keystore/debug_user=".*"|keystore/debug_user=""|g' export_presets.cfg
+          sed -i 's|keystore/debug_password=".*"|keystore/debug_password=""|g' export_presets.cfg
+          echo "✅ Конфиг пропатчен для CI"
 
       - name: Configure Godot Android settings
         run: |
@@ -68,19 +74,14 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p build
-          # Проверяем, есть ли пресет 'Android' в конфиге
-          if ! grep -q 'name="Android"' export_presets.cfg; then
-            echo "❌ ОШИБКА: Пресет с именем 'Android' не найден в export_presets.cfg"
-            exit 1
-          fi
-          
-          echo "🚀 Начинаю экспорт..."
+          # Используем --export-debug для простоты, так как ключ у нас дебажный
           godot --headless --path . --export-debug "Android" "build/ShadowWard.apk"
           
           if [ -f "build/ShadowWard.apk" ]; then
-            echo "✅ APK успешно создан!"
+            echo "✅ APK создан!"
           else
-            echo "❌ ОШИБКА: APK не был создан. Проверь логи Godot выше."
+            echo "❌ ОШИБКА: APK не найден. Повторная попытка с полным логом..."
+            godot --headless --path . --export-debug "Android" "build/ShadowWard.apk" 2>&1
             exit 1
           fi
 
@@ -93,8 +94,6 @@ jobs:
   build-windows:
     name: 🖥️ Windows EXE
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -116,7 +115,6 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --path . --export-release "Windows Desktop" "build/ShadowWard.exe"
-          ls -la build/
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
@@ -145,9 +143,10 @@ jobs:
           tag_name: "v1.0.${{ github.run_number }}"
           name: "🕯️ Shadow Ward v1.0.${{ github.run_number }}"
           body: |
-            ## 🕯️ Shadow Ward — Психологический хоррор
+            ## 🕯️ Shadow Ward — Сборка готова!
             
-            Автоматическая сборка проекта.
+            - **Android**: Установите ShadowWard.apk.
+            - **Windows**: Запустите ShadowWard.exe (оба файла .exe и .pck должны быть в одной папке).
           files: |
             artifacts/**/*.apk
             artifacts/**/*.exe
