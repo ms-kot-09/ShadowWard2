@@ -95,3 +95,4 @@ ShadowWard/
 3. **Добавь звуки** в `assets/sounds/`
 4. **Настрой NavMesh** для призраков
 5. **Запусти** и тестируй!
+# ShadowWard2
