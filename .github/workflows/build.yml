@@ -39,7 +39,6 @@ jobs:
           unzip -q godot.zip
           sudo mv "Godot_v${{ env.GODOT_VERSION }}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
-          godot --version
 
       - name: Download export templates
         run: |
@@ -47,13 +46,10 @@ jobs:
           wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" -O templates.tpz
           unzip -q templates.tpz
           mv templates/* ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/
-          echo "Templates installed:"
-          ls ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/ | head -10
 
       - name: Setup Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          # Accept licenses
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" 2>/dev/null || true
 
@@ -72,20 +68,27 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p build
-          godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/build/ShadowWard.apk" 2>&1 | tail -20 || true
-          # Fallback: export without templates check
-          if [ ! -f "build/ShadowWard.apk" ]; then
-            echo "APK not created, trying alternative..."
-            godot --headless --export-release "Android" "$GITHUB_WORKSPACE/build/ShadowWard.apk" 2>&1 | tail -20 || true
+          # Проверяем, есть ли пресет 'Android' в конфиге
+          if ! grep -q 'name="Android"' export_presets.cfg; then
+            echo "❌ ОШИБКА: Пресет с именем 'Android' не найден в export_presets.cfg"
+            exit 1
           fi
-          ls -la build/ || echo "Build dir contents above"
+          
+          echo "🚀 Начинаю экспорт..."
+          godot --headless --path . --export-debug "Android" "build/ShadowWard.apk"
+          
+          if [ -f "build/ShadowWard.apk" ]; then
+            echo "✅ APK успешно создан!"
+          else
+            echo "❌ ОШИБКА: APK не был создан. Проверь логи Godot выше."
+            exit 1
+          fi
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: ShadowWard-Android
           path: build/ShadowWard.apk
-          if-no-files-found: warn
 
   build-windows:
     name: 🖥️ Windows EXE
@@ -112,7 +115,7 @@ jobs:
       - name: Export Windows EXE
         run: |
           mkdir -p build
-          godot --headless --export-release "Windows Desktop" "$GITHUB_WORKSPACE/build/ShadowWard.exe" 2>&1 | tail -20 || true
+          godot --headless --path . --export-release "Windows Desktop" "build/ShadowWard.exe"
           ls -la build/
 
       - name: Upload Windows build
@@ -122,7 +125,6 @@ jobs:
           path: |
             build/ShadowWard.exe
             build/ShadowWard.pck
-          if-no-files-found: warn
 
   release:
     name: 📦 GitHub Release
@@ -130,8 +132,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -146,19 +146,9 @@ jobs:
           name: "🕯️ Shadow Ward v1.0.${{ github.run_number }}"
           body: |
             ## 🕯️ Shadow Ward — Психологический хоррор
-
-            ### 📱 Android
-            Скачай APK, установи через файловый менеджер.
-            Управление: виртуальный джойстик + тап-камера.
-
-            ### 🖥️ Windows
-            Распакуй и запусти ShadowWard.exe
-            Управление: WASD + мышь, F — фонарик, E — взаимодействие.
-
-            ### ⚠️ При установке APK
-            Разрешить установку из неизвестных источников.
+            
+            Автоматическая сборка проекта.
           files: |
             artifacts/**/*.apk
             artifacts/**/*.exe
             artifacts/**/*.pck
-          generate_release_notes: false
