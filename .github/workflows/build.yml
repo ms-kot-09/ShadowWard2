@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
           wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" -O templates.tpz
-          unzip -q templates.tpz
+          unzip -q templates.zip || unzip -q templates.tpz
           mv templates/* ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/
 
       - name: Setup Android SDK
@@ -51,13 +51,14 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Patch Export Presets
+      - name: Force Clean Project
         run: |
-          sed -i 's|keystore/debug=".*"|keystore/debug=""|g' export_presets.cfg
-          sed -i 's|keystore/debug_user=".*"|keystore/debug_user=""|g' export_presets.cfg
-          sed -i 's|keystore/debug_password=".*"|keystore/debug_password=""|g' export_presets.cfg
+          # Удаляем папки сборки, если они попали в гит, чтобы не путать Godot
+          rm -rf android/build
+          rm -rf build
+          mkdir -p build
 
-      - name: Configure Godot Android settings
+      - name: Configure Godot settings
         run: |
           mkdir -p ~/.config/godot
           cat > ~/.config/godot/editor_settings-4.tres << EOF
@@ -71,43 +72,15 @@ jobs:
 
       - name: Export Android APK
         run: |
-          mkdir -p build
-          godot --headless --path . --export-debug "Android" "build/ShadowWard.apk"
+          # Пытаемся собрать. Если упадет — выведет ВЕСЬ лог ошибок.
+          godot --headless --path . --export-debug "Android" "build/ShadowWard.apk" --verbose
 
       - name: Upload Android APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ShadowWard-Android
           path: build/ShadowWard.apk
-
-  build-windows:
-    name: 🖥️ Windows EXE
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Godot ${{ env.GODOT_VERSION }}
-        run: |
-          wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_linux.x86_64.zip" -O godot.zip
-          unzip -q godot.zip
-          sudo mv "Godot_v${{ env.GODOT_VERSION }}-stable_linux.x86_64" /usr/local/bin/godot
-          sudo chmod +x /usr/local/bin/godot
-
-      - name: Download export templates
-        run: |
-          mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
-          wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" -O templates.tpz
-          unzip -q templates.tpz
-          mv templates/* ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/
-
-      - name: Export Windows EXE
-        run: |
-          mkdir -p build
-          godot --headless --path . --export-release "Windows Desktop" "build/ShadowWard.exe"
-
-      - name: Upload Windows build
-        uses: actions/upload-artifact@v4
-        with:
           name: ShadowWard-Windows
           path: |
             build/ShadowWard.exe
