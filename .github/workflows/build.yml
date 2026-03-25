@@ -51,13 +51,18 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Patch Export Presets (Auto-Fix)
+      - name: Patch Export Presets (CI Optimization)
         run: |
-          # Этот шаг принудительно очищает пути к ключам в конфиге, чтобы не было конфликтов
+          # Очищаем все пути, которые могут вызвать "Configuration Errors" на сервере
+          # Удаляем локальные пути к ключам
           sed -i 's|keystore/debug=".*"|keystore/debug=""|g' export_presets.cfg
           sed -i 's|keystore/debug_user=".*"|keystore/debug_user=""|g' export_presets.cfg
           sed -i 's|keystore/debug_password=".*"|keystore/debug_password=""|g' export_presets.cfg
-          echo "✅ Конфиг пропатчен для CI"
+          # Удаляем пути к иконкам и заставкам (если файлов нет в репозитории, билд упадет)
+          sed -i 's|launcher_icons/.*=".*"|&|g' export_presets.cfg # сохраняем структуру
+          # Если Godot ругается на отсутствие иконок, мы их просто "зануляем" в конфиге для CI
+          sed -i 's|^.*icon="res://.*"$||g' export_presets.cfg
+          echo "✅ Конфиг export_presets.cfg подготовлен для GitHub Actions"
 
       - name: Configure Godot Android settings
         run: |
@@ -74,14 +79,14 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p build
-          # Используем --export-debug для простоты, так как ключ у нас дебажный
-          godot --headless --path . --export-debug "Android" "build/ShadowWard.apk"
+          echo "🚀 Запуск экспорта Android..."
+          # Используем --verbose, чтобы в случае ошибки увидеть причину (например, какой файл иконки не найден)
+          godot --headless --path . --export-debug "Android" "build/ShadowWard.apk" --verbose
           
           if [ -f "build/ShadowWard.apk" ]; then
-            echo "✅ APK создан!"
+            echo "✅ APK успешно создан!"
           else
-            echo "❌ ОШИБКА: APK не найден. Повторная попытка с полным логом..."
-            godot --headless --path . --export-debug "Android" "build/ShadowWard.apk" 2>&1
+            echo "❌ ОШИБКА: APK не создан. Проверь логи выше на наличие 'Configuration Errors'"
             exit 1
           fi
 
@@ -108,6 +113,50 @@ jobs:
         run: |
           mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
           wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" -O templates.tpz
+          unzip -q templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/
+
+      - name: Export Windows EXE
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-release "Windows Desktop" "build/ShadowWard.exe"
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShadowWard-Windows
+          path: |
+            build/ShadowWard.exe
+            build/ShadowWard.pck
+
+  release:
+    name: 📦 GitHub Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "🕯️ Shadow Ward v1.0.${{ github.run_number }}"
+          body: |
+            ## 🕯️ Shadow Ward — Психологический хоррор
+            
+            Автоматическая сборка проекта:
+            - **Android**: Установите APK на телефон.
+            - **Windows**: Скачайте .exe и .pck (должны лежать в одной папке).
+          files: |
+            artifacts/**/*.apk
+            artifacts/**/*.exe
+            artifacts/**/*.pck
           unzip -q templates.tpz
           mv templates/* ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable/
 
