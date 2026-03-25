@@ -1,0 +1,156 @@
+[gd_scene load_steps=6 format=3 uid="uid://warda"]
+
+[ext_resource type="Script" path="res://scripts/systems/LevelBuilder.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/systems/HorrorEvents.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/systems/NoteObject.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/entities/Player.tscn" id="4"]
+[ext_resource type="Script" path="res://scripts/enemies/Ghost.gd" id="5"]
+
+[sub_resource type="CapsuleShape3D" id="ghost_col"]
+radius = 0.35
+height = 1.7
+
+[sub_resource type="CapsuleMesh" id="ghost_mesh"]
+radius = 0.35
+height = 1.7
+
+[sub_resource type="StandardMaterial3D" id="ghost_mat"]
+transparency = 1
+albedo_color = Color(0.7, 0.8, 1.0, 0.25)
+emission_enabled = true
+emission = Color(0.5, 0.6, 1.0)
+emission_energy_multiplier = 0.4
+
+[sub_resource type="BoxShape3D" id="note_col"]
+size = Vector3(0.3, 0.4, 0.02)
+
+[sub_resource type="BoxMesh" id="note_mesh"]
+size = Vector3(0.25, 0.35, 0.01)
+
+[sub_resource type="StandardMaterial3D" id="note_mat"]
+albedo_color = Color(0.92, 0.88, 0.80)
+
+[node name="Ward_A" type="Node3D"]
+
+[node name="LevelGeometry" type="Node3D" parent="."]
+script = ExtResource("1")
+
+[node name="Player" parent="." instance=ExtResource("4")]
+position = Vector3(0, 0.1, 0)
+
+[node name="HorrorEvents" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="Notes" type="Node3D" parent="."]
+
+[node name="Note_01" type="StaticBody3D" parent="Notes"]
+position = Vector3(-3.5, 0.85, 8.0)
+script = ExtResource("3")
+note_id = "reception_note"
+note_title = "Направление — Доктор Волков"
+note_content = "Дата: 14 ноября 1994
+Пациент: Алексей Д., 34 года
+Диагноз: Параноидная шизофрения с галлюцинациями
+
+Пациент настаивает, что видит 'тёмные фигуры' в коридорах. Утверждает, что слышит шёпот в стенах. Назначено усиленное медикаментозное лечение.
+
+Примечание: странные царапины на стенах палаты №7. Пациент не может объяснить их происхождение."
+interact_text = "Прочитать направление"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Notes/Note_01"]
+shape = SubResource("note_col")
+[node name="Mesh" type="MeshInstance3D" parent="Notes/Note_01"]
+mesh = SubResource("note_mesh")
+surface_material_override/0 = SubResource("note_mat")
+
+[node name="Note_02" type="StaticBody3D" parent="Notes"]
+position = Vector3(10.0, 0.85, 7.0)
+rotation = Vector3(0, 0.5, 0)
+script = ExtResource("3")
+note_id = "office_diary"
+note_title = "Личный дневник — Доктор Волков"
+note_content = "12 декабря.
+Три недели без нормального сна. Пациенты успокоились после увеличения дозы, но я... я сам начинаю видеть вещи.
+
+Вчера ночью в коридоре стояла фигура. Когда я включил свет — никого.
+
+Может, это переутомление. Но почему все камеры в крыле А перестали работать одновременно?
+
+Нужно выбраться отсюда."
+interact_text = "Прочитать дневник"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Notes/Note_02"]
+shape = SubResource("note_col")
+[node name="Mesh" type="MeshInstance3D" parent="Notes/Note_02"]
+mesh = SubResource("note_mesh")
+surface_material_override/0 = SubResource("note_mat")
+
+[node name="Note_03" type="StaticBody3D" parent="Notes"]
+position = Vector3(-5.0, 0.85, 24.0)
+script = ExtResource("3")
+note_id = "warning_note"
+note_title = "Предупреждение (нацарапано на стене)"
+note_content = "ОНО ВИДИТ ТЕБЯ КОГДА ТЫ ЕГО НЕ ВИДИШЬ
+
+не смотри в зеркала
+держи свет включённым
+не ходи один в подвал
+
+я пытался убежать
+оно всегда возвращается
+ОНО ВСЕГДА ВОЗВРАЩАЕТСЯ"
+interact_text = "Рассмотреть надпись"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Notes/Note_03"]
+shape = SubResource("note_col")
+[node name="Mesh" type="MeshInstance3D" parent="Notes/Note_03"]
+mesh = SubResource("note_mesh")
+surface_material_override/0 = SubResource("note_mat")
+
+[node name="Enemies" type="Node3D" parent="."]
+
+[node name="Ghost_01" type="CharacterBody3D" parent="Enemies"]
+position = Vector3(0, 0.1, 15)
+script = ExtResource("5")
+ghost_type = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Enemies/Ghost_01"]
+shape = SubResource("ghost_col")
+position = Vector3(0, 0.85, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Enemies/Ghost_01"]
+mesh = SubResource("ghost_mesh")
+position = Vector3(0, 0.85, 0)
+surface_material_override/0 = SubResource("ghost_mat")
+
+[node name="Nav" type="NavigationAgent3D" parent="Enemies/Ghost_01"]
+[node name="Area" type="Area3D" parent="Enemies/Ghost_01"]
+[node name="AreaShape" type="CollisionShape3D" parent="Enemies/Ghost_01/Area"]
+shape = SubResource("ghost_col")
+position = Vector3(0, 0.85, 0)
+[node name="Audio" type="AudioStreamPlayer3D" parent="Enemies/Ghost_01"]
+max_distance = 20.0
+
+[node name="Ghost_02" type="CharacterBody3D" parent="Enemies"]
+position = Vector3(10, 0.1, 6)
+script = ExtResource("5")
+ghost_type = 1
+speed_patrol = 0.8
+speed_chase = 6.5
+detect_range = 16.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Enemies/Ghost_02"]
+shape = SubResource("ghost_col")
+position = Vector3(0, 0.85, 0)
+[node name="Mesh" type="MeshInstance3D" parent="Enemies/Ghost_02"]
+mesh = SubResource("ghost_mesh")
+position = Vector3(0, 0.85, 0)
+surface_material_override/0 = SubResource("ghost_mat")
+[node name="Nav" type="NavigationAgent3D" parent="Enemies/Ghost_02"]
+[node name="Area" type="Area3D" parent="Enemies/Ghost_02"]
+[node name="AreaShape" type="CollisionShape3D" parent="Enemies/Ghost_02/Area"]
+shape = SubResource("ghost_col")
+position = Vector3(0, 0.85, 0)
+[node name="Audio" type="AudioStreamPlayer3D" parent="Enemies/Ghost_02"]
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]

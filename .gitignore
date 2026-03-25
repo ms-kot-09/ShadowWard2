@@ -1,0 +1,8 @@
+.godot/
+*.import
+build/
+*.apk
+*.exe
+*.pck
+android/debug.keystore
+.DS_Store
